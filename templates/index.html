@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Intelligent Disk I/O Scheduler</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+<div class="shell">
+
+<header>
+    <div class="brand">
+        <span class="orb">◈</span>
+        <div>
+            <h1>Disk I/O Analyzer</h1>
+            <p>Intelligent Scheduling & Performance Analytics</p>
+        </div>
+    </div>
+    <span class="status">● SYSTEM READY</span>
+</header>
+
+<section class="hero">
+    <div>
+        <p class="eyebrow">STORAGE PERFORMANCE LAB</p>
+        <h2>Analyze. Compare.<br>
+            <span>Optimize Disk Movement.</span>
+        </h2>
+        <p class="sub">Compare six disk scheduling algorithms.</p>
+    </div>
+</section>
+
+<div class="layout">
+
+<section class="panel inputpanel">
+    <h3>Simulation Settings</h3>
+
+    <form method="POST">
+
+        <label>Disk Request Queue</label>
+        <input type="text" name="requests"
+               value="{{ request.form.get('requests', '98,183,37,122,14,124,65,67') }}"
+               required>
+
+        <div class="twocol">
+            <div>
+                <label>Initial Head</label>
+                <input type="number" name="head"
+                       value="{{ request.form.get('head', 53) }}"
+                       required>
+            </div>
+
+            <div>
+                <label>Disk Size</label>
+                <input type="number" name="size"
+                       value="{{ request.form.get('size', 200) }}"
+                       min="2" required>
+            </div>
+        </div>
+
+        <label>Initial Direction</label>
+
+        <select name="direction">
+            <option value="right"
+                {% if request.form.get('direction', 'right') == 'right' %}selected{% endif %}>
+                Right
+            </option>
+
+            <option value="left"
+                {% if request.form.get('direction') == 'left' %}selected{% endif %}>
+                Left
+            </option>
+        </select>
+
+        <button type="submit">Run Analysis</button>
+        <a href="/" class="reset">Reset</a>
+
+    </form>
+</section>
+
+<section class="panel results">
+
+{% if data and data.error %}
+
+    <div class="error">{{ data.error }}</div>
+
+{% elif data and data.best %}
+
+    <div class="topstats">
+
+        <div class="stat">
+            <small>Best Algorithm</small>
+            <h2>{{ data.best }}</h2>
+        </div>
+
+        <div class="stat">
+            <small>Minimum Movement</small>
+            <h2>{{ data[data.best].movement }}</h2>
+        </div>
+
+        <div class="stat">
+            <small>Algorithms</small>
+            <h2>6</h2>
+        </div>
+
+    </div>
+
+    <h3>Performance Comparison</h3>
+    <canvas id="chart"></canvas>
+
+    <h3>Results</h3>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Algorithm</th>
+                <th>Movement</th>
+                <th>Average</th>
+                <th>Sequence</th>
+            </tr>
+        </thead>
+
+        <tbody>
+        {% for name in ['FCFS','SSTF','SCAN','C-SCAN','LOOK','C-LOOK'] %}
+            <tr {% if name == data.best %}class="winner"{% endif %}>
+                <td>
+                    {{ name }}
+                    {% if name == data.best %}
+                    <span class="tag">BEST</span>
+                    {% endif %}
+                </td>
+
+                <td>{{ data[name].movement }}</td>
+                <td>{{ data.average[name] }}</td>
+                <td class="seq">{{ data[name].sequence | join(' → ') }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h3>Recommended Head Movement</h3>
+    <canvas id="path"></canvas>
+
+    {% set chart_labels = ['FCFS','SSTF','SCAN','C-SCAN','LOOK','C-LOOK'] %}
+    {% set chart_values = [
+        data['FCFS'].movement,
+        data['SSTF'].movement,
+        data['SCAN'].movement,
+        data['C-SCAN'].movement,
+        data['LOOK'].movement,
+        data['C-LOOK'].movement
+    ] %}
+
+    {% set best_sequence = data[data.best].sequence %}
+
+    <script id="chart-data" type="application/json">
+        {{ {'labels': chart_labels, 'values': chart_values, 'sequence': best_sequence} | tojson }}
+    </script>
+
+    <script>
+    const chartData = JSON.parse(
+        document.getElementById('chart-data').textContent
+    );
+
+    new Chart(document.getElementById('chart'), {
+        type: 'bar',
+
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                label: 'Head Movement',
+                data: chartData.values,
+                borderRadius: 6
+            }]
+        },
+
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    const seq = chartData.sequence;
+
+    new Chart(document.getElementById('path'), {
+        type: 'line',
+
+        data: {
+            labels: seq.map((v, i) => 'Step ' + i),
+            datasets: [{
+                label: 'Cylinder Position',
+                data: seq,
+                tension: 0.15,
+                pointRadius: 4
+            }]
+        },
+
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Cylinder Position'
+                    }
+                }
+            }
+        }
+    });
+    </script>
+
+{% else %}
+
+    <div class="empty">
+        <h3>Waiting for Simulation</h3>
+        <p>Enter disk requests and click Run Analysis.</p>
+        <p>FCFS · SSTF · SCAN · C-SCAN · LOOK · C-LOOK</p>
+    </div>
+
+{% endif %}
+
+</section>
+</div>
+
+<footer>
+    INTELLIGENT DISK I/O SCHEDULER ANALYZER
+</footer>
+
+</div>
+</body>
+</html>
